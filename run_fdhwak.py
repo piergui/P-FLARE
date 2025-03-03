@@ -16,30 +16,30 @@ from time import time
 import h5py as h5
 
 ### Grid resolution and box size
-Npx, Npy = 512, 512 # padded resolution
-Lx ,Ly = 32*np.pi, 32*np.pi # box size
+Npx, Npy = 1024, 1024 # padded resolution
+Lx ,Ly = 64*np.pi, 64*np.pi # box size
 
 ### Integration time range and timesteps (solver, show, save, etc.)
-t0, t1 = 0.0, 200.0 # time range to integrate /!\ use floats otherwise saving of time fails
+t0, t1 = 0.0, 2000.0 # time range to integrate /!\ use floats otherwise saving of time fails
 dtstep, dtshow = 0.1, 1.0 # time step integration, time step to print where we are
 
 ### Physical parameters
-C = 0.05 # adiabaticity parameter
-kap = 1.0 # background density gradient
+C = 0.01 # adiabaticity parameter
 nu = 4e-2 # viscosity
 D = 4e-2 # turbulent particle diffusion
 # Dn = 1e-4 # zonal particle diffusion
 
 ### Buffer and penalisation parameters
-il , ir = int(Npx/128), -int(Npx/128)  # end and start indices of the interval where the gate is exactly 0
-i1, i2 = int(Npx/8), -int(Npx/8) # boundary indices of the buffer zone
-im1, im2 = int(i1/2), int(i2/2) # indices where to modify the zonal density profile
+im1, im2 = 44, -44 # indices where to flatten the zonal density profile
+d_ixm =  40  # number of points over which the flattening gate transitions
+ib1, ib2 = 80, -80 # boundary indices of the buffer zone
+d_ixb = 76  # number of points over which the penalisation gate transitions
 mupen = 1e2 # friction coefficient to prevent the fluctuations going in the buffer
 sigS = 5 * Lx / Npx # width of the "artificial" sources for the boundary conditions 
 
 ### Saving name or loading existing simulation
-wecontinue =False #flag to continue an already run simulation
-flname = f'outfdC{C}_{int(Lx/np.pi)}pi_{Npx}x{Npy}_edge.h5' 
+wecontinue =True #flag to continue an already run simulation
+flname = f'outfdC{C}_{int(Lx/np.pi)}pi_{Npx}x{Npy}.h5' 
 
 ### Construct real space 
 X,  Y = xp.arange(0, Lx, Lx/Npx), xp.arange(0, Ly, Ly/Npy) #1D arrays for x and y axis
@@ -47,8 +47,12 @@ x, y = xp.meshgrid(xp.array(X), xp.array(Y), indexing='ij') #2D arrays for xy gr
 
 ### Building the initial radial profiles
 ur0 = xp.zeros_like(X) # flat initial poloidal velocity profile
-nr0 = Lx * (xp.tanh((1 - 3 * X/Lx / 2) * 4) / 2 + 0.75) # initial density profile, with a hyperbolic tangent shape
+nr0 = 2 * Lx * (np.exp(-(X**2 / (2 * (Lx/3)**2))))  # initial density profile, with a gaussian shape
 # nr0 =Lx - X
+
+### Source term
+def S_n(X, X0, t, alpha, sig_n):
+    return alpha * xp.exp(-(X - X0) ** 2 / (2 * sig_n**2)) 
 
 ### Construct the slices and the Fourier space for 1D vectors
 Nx, Ny = 2 * int(np.floor(Npx/3)), 2 * int(np.floor(Npy/3)) # Fourier grid resolution with 2/3 padding rule
@@ -91,38 +95,39 @@ def jump(y):
     return p(y) / (p(y) + p(1-y))
 
 ### Smooth gate function
-def smooth_gate(X, il, i1, i2, ir):
-    f = xp.ones_like(X) # exactly one for X1 <= X <= X2
-    idl = abs(X - (X[i1] + X[il]) /2) < (X[i1] - X[il]) /2  # points X[il] < X < X[i1]
-    idr = abs(X - (X[ir] + X[i2]) /2) < (X[ir] - X[i2]) /2 # points X[i2] < X < X[ir]
-    f[X <= X[il]] = 0 # exactly 0 for X <= X[il]
-    f[idl] = jump((X[idl] - X[il]) / (X[i1] - X[il])) # transitions from 0 to 1 for Xl < X < X1
-    f[idr] = jump((X[ir] - X[idr]) / (X[ir] - X[i2])) # transitions from 1 to 0 for X2 > X > Xr
-    f[X >= X[ir]] = 0 # exactly 0 for X >= X[ir]
+def smooth_gate(X, i1, i2, d_ix):
+    f = xp.ones_like(X) # exactly one for Xb1 <= X <= Xb2
+    il, ir = i1 - d_ix, i2 + d_ix
+    idl = abs(X - (X[i1] + X[il]) /2) < (X[i1] - X[il]) /2  # points Xb1 - dX < X < Xb1
+    idr = abs(X - (X[ir] + X[i2]) /2) < (X[ir] - X[i2]) /2 # points Xb2 < X < Xb2 + dX
+    f[X <= X[il]] = 0 # exactly 0 for X <= Xb1 - dX
+    f[idl] = jump((X[idl] - X[il]) / (X[i1] - X[il])) # transitions from 0 to 1 for Xb1 - dX < X < Xb1
+    f[idr] = jump((X[ir] - X[idr]) / (X[ir] - X[i2])) # transitions from 1 to 0 for Xb2 < X < Xb2 + dX
+    f[X >= X[ir]] = 0 # exactly 0 for X >= Xb2 + dX
     return f
 
 ### Building smooth gates for 1D and 2 penalisation
 psi_2D = xp.zeros_like(x)
-psi_2D += smooth_gate(X, il, i1, i2, ir)[:, None]
+psi_2D += smooth_gate(X, ib1, ib2, d_ixb)[:, None]
 
-psi_1D = smooth_gate(X, il, i1, i2, ir)
-H1 = (1 - psi_1D) * (X < X[i1]) # 1 only in the left buffer
-H2 = (1 - psi_1D) * (X > X[i2]) # 1 only in the right buffer
+psi_1D = smooth_gate(X, ib1, ib2, d_ixb)
+H1 = (1 - psi_1D) * (X < X[ib1]) # 1 only in the left buffer
+H2 = (1 - psi_1D) * (X > X[ib2]) # 1 only in the right buffer
 
 ### Decompose and smooth the zonal profile in the buffer
-def dec_prof(nr, X, il, im1, i1, i2, im2, ir):
-    ### Compute kappa between x1 and x2
-    kap = - (nr[i2] - nr[i1]) / (X[i2] - X[i1])
+def dec_prof(nr, X, ib1, ib2, im1, im2, d_ix):
+    ### Compute kappa between Xb1 and Xb2
+    kap = - (nr[ib2] - nr[ib1]) / (X[ib2] - X[ib1])
     
     ### Construct the linear profile
-    nlin = -kap * (X - X[i2]) + nr[i2]
+    nlin = -kap * (X - X[ib2]) + nr[ib2]
 
     ### Get the zonal profile from the radial profile
     nbar_raw = nr - nlin  
     
     ### Modify the zonal profile to make it flat in the buffer, starting the flattening at xm1 and xm2
-    n_off = xp.mean(nbar_raw[np.r_[0, im1, im2, -1]]) #offset to shift the zonal profile with when multiplying by the smooth gate
-    nbar_smth = (nbar_raw - n_off) * smooth_gate(X, il, im1, im2, ir) + n_off
+    n_off = xp.mean(nbar_raw[np.r_[0, im1, im2, -1]]) # offset to shift the zonal profile with when multiplying by the smooth gate
+    nbar_smth = (nbar_raw - n_off) * smooth_gate(X, im1, im2, d_ix) + n_off
 
     ### Remove the mean value from the zonal profile
     nm = xp.mean(nbar_smth)
@@ -176,10 +181,10 @@ def save_callback(fl,t,y,l):
     ur, nr = zr[:int(zr.size/2)], zr[int(zr.size/2):]
     
     ### Extract kappa and zonal profile from the radial density profile
-    nbar, kap, nm = dec_prof(nr, X, il, im1, i1, i2, im2, ir)
+    nbar, kap, nm = dec_prof(nr, X, ib1, ib2, im1, im2, d_ixm)
     
     ### Flatten also the radial profile to avoid oscillations due to accumulating errors 
-    ubar = ur[:] * smooth_gate(X, il, im1, im2, ir)
+    ubar = ur[:] * smooth_gate(X, im1, im2, d_ixm)
     
     ### Get the zonal modes by computing the Fourier transform of the zonal profiles
     phiq = -1j * rft(ubar) / kx[slbar]
@@ -249,10 +254,10 @@ def rhs(t,y):
     durdt, dnrdt = dzrdt[:int(zr.size/2)], dzrdt[int(zr.size/2):]
         
     ### Extract kappa and zonal profile from the radial density profile
-    nbar, kap, nm = dec_prof(nr, X, il, im1, i1, i2, im2, ir)
+    nbar, kap, nm = dec_prof(nr, X, ib1, ib2, im1, im2, d_ixm)
     
     ### Flatten also the radial profile to avoid oscillations due to accumulating errors 
-    ubar = ur[:] * smooth_gate(X, il, im1, im2, ir)
+    ubar = ur[:] * smooth_gate(X, im1, im2, d_ixm)
 
     ### Get the zonal modes by computing the Fourier transform of the zonal profiles
     phiq = -1j * rft(ubar) / kx[slbar]
@@ -289,11 +294,14 @@ def rhs(t,y):
     durdt += - mupen * (1 - psi_1D) * ur 
     
     ### Boundary conditions at x1 and x2, using artificial narrow gaussian sources
-    dnrdt +=  -dnrdt[i2] * xp.exp(-(X - X[i2])**2 / sigS**2 /2) # impose dnrdt[i2] = 0
-    dnrdt += dnrdt[i2] * xp.exp(-(X - X[i1])**2 / sigS**2 /2) # We want a free moving boudnary, but we add the gaussian source to compensate for the artificial losses at the other boundary
+    dnrdt +=  -dnrdt[ib2] * xp.exp(-(X - X[ib2])**2 / sigS**2 /2) # impose dnrdt[i2] = 0
+    dnrdt += dnrdt[ib2] * xp.exp(-(X - X[ib1])**2 / sigS**2 /2) # We want a free moving boundary, but we add the gaussian source to compensate for the artificial losses at the other boundary
+    
+    ### Apply physical source terms, here a constant source term
+    dnrdt += S_n(X, X[ib1], t, alpha = 5.0, sig_n = sigS * 5)
     
     ### Apply the penalisation to force the density profile to follow its initial shape in the buffer (no fluctuations in that region), but shifted according to the variations of nr[i1] and nr[i2]
-    nbuff1, nbuff2 = nr0 - nr0[i1] + nr[i1], nr0 - nr0[i2] + nr[i2]
+    nbuff1, nbuff2 = nr0 - nr0[ib1] + nr[ib1], nr0 - nr0[ib2] + nr[ib2]
     dnrdt +=  - mupen * (H1 * (nr - nbuff1) + H2 * (nr - nbuff2)) 
     
     #Update the turbulent modes
@@ -317,7 +325,7 @@ else:
     save_data(fl,'last',ext_flag=False,z=z.get(),t=t)
     
 save_data(fl,'params', ext_flag=False, C=C , nu=nu, D=D, Lx=Lx, Ly=Ly, Npx=Npx, Npy=Npy)
-save_data(fl,'buffer', ext_flag=False, mupen=mupen, indices=(il, im1, i1,  i2, im2, ir), sigS=sigS)
+save_data(fl,'buffer', ext_flag=False, mupen=mupen, indices=(ib1, ib2, d_ixb, im1, im2, d_ixm), sigS=sigS)
 
 ###Setting saving
 fsave=[

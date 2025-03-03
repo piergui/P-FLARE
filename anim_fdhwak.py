@@ -21,7 +21,8 @@ from matplotlib.patches import Rectangle
 from mpi4py import MPI
 comm=MPI.COMM_WORLD
 
-infl="outfdC0.05_32pi_512x512_test.h5"
+#infl="outfdC0.01_64pi_1024x1024.h5"
+infl="/home/pguillon/mnt/runs/outfdC0.1_128pi_4096x4096.h5"
 outfl=infl[:-3]+".mp4"
 
 plt.rcParams.update({
@@ -42,11 +43,6 @@ plt.rcParams.update({
     'ytick.major.width': 2,
     'ytick.minor.width': 1,})
 
-vminom=-10
-vmaxom=10
-vminn=-10
-vmaxn=10
-
 fl=h5.File(infl,"r",libver='latest',swmr=True)
 uk=fl['fields/uk']
 ur=fl['fields/ur']
@@ -58,10 +54,13 @@ Npy=fl['params/Npy'][()]
 C=fl['params/C'][()]
 nu=fl['params/nu'][()]
 
-vmin_u, vmax_u = -1.1 * np.max(abs(ur[:])), 1.1 * np.max(abs(ur[:]))
-vmin_n, vmax_n = np.min(nr[:])*0.9, np.max(nr[:])*1.1
+vminom, vmaxom = -10, 10
+vminn, vmaxn = -100, 100
 
-il, im1, i1, i2, im2, ir = fl['buffer/indices'][()]
+vmin_u, vmax_u = -1.1 * np.max(abs(ur[:])), 1.1 * np.max(abs(ur[:]))
+vmin_n, vmax_n = np.min(nr[:,])*0.9, np.max(nr[:,])*1.1
+
+ib1, ib2, d_ixb, im1, im2, d_ixm = fl['buffer/indices'][()]
 
 Nx=int(Npx/3)*2
 Ny=int(Npy/3)*2
@@ -125,28 +124,31 @@ def jump(y):
     return p(y) / (p(y) + p(1-y))
 
 ### Smooth gate function
-def smooth_gate(x, il, i1, i2, ir):
-    f = np.ones_like(x)
-    idl = abs(x - (x[i1] + x[il]) /2) < (x[i1] - x[il]) /2  # points x[il] < x < x[i1]
-    idr = abs(x - (x[ir] + x[i2]) /2) < (x[ir] - x[i2]) /2 # points x[i2] < x < x[ir]
-    f[x <= x[il]] = 0
-    f[idl] = jump((x[idl] - x[il]) / (x[i1] - x[il]))
-    f[idr] = jump((x[ir] - x[idr]) / (x[ir] - x[i2]))
-    f[x>=x[ir]] = 0
+def smooth_gate(X, i1, i2, d_ix):
+    # smooth gate function
+    f = np.ones_like(X)
+    il, ir = i1 -d_ix, i2 + d_ix
+    idl = abs(X - (X[i1] + X[il]) /2) < (X[i1] - X[il]) /2  # points X[il] < X < X[ib1]
+    idr = abs(X - (X[ir] + X[i2]) /2) < (X[ir] - X[i2]) /2 # points X[ib2] < X < X[ir]
+    f[X <= X[il]] =0
+    f[idl] = jump((X[idl] - X[il]) / (X[i1] - X[il]))
+    f[idr] = jump((X[ir] - X[idr]) / (X[ir] - X[i2]))
+    f[X >= X[ir]] =0
     return f
-
+    
 ### Decompose and smooth the zonal profile in the buffer
-def dec_prof(nr, x, il, im1, i1, i2, im2, ir):
+def dec_prof(nr, X, ib1, ib2, im1, im2, d_ix):
+    
     ### Get kappa and the linear profile
-    kap = - (nr[i2] - nr[i1]) / (x[i2] - x[i1])
-    nlin = -kap * (x - x[i2]) + nr[i2]
+    kap = - (nr[ib2] - nr[ib1]) / (X[ib2] - X[ib1])
+    nlin = -kap * (X - X[ib2]) + nr[ib2]
 
     ### Get the zonal profile from the radial profile
     nbar_raw = nr - nlin  
     
     ### Modify the zonal profile to make it periodic in the buffer
     n_off = np.mean(nbar_raw[np.r_[0, im1, im2, -1]]) #offset to shift the zonal profile with when multiplying by the smooth gate
-    nbar_smth = (nbar_raw - n_off) * smooth_gate(x, il, im1, im2, ir) + n_off
+    nbar_smth = (nbar_raw - n_off) * smooth_gate(X, im1, im2, d_ix) + n_off
 
     ### Remove the mean value from the zonal profile
     nm = np.mean(nbar_smth)
@@ -162,8 +164,8 @@ axi = [ax[i].twinx() for i in range(2)]
 
 u0=irft2(-uk[0,0,:,:]*ksqr).real
 u1=irft2(uk[0,1,:,:]).real
-nbar, kap, nm = dec_prof(nr[0,], X, il, im1, i1, i2, im2, ir) 
-nlin =  -kap*(X-X[i2]) + nr[0, i2]
+nbar, kap, nm = dec_prof(nr[0,], X, ib1, ib2, im1, im2, d_ixm) 
+nlin =  -kap*(X-X[ib2]) + nr[0, ib2]
 
 qd=[]
 qd.append(ax[0].pcolormesh(x, y, u0,cmap='seismic',rasterized=True,vmin=vminom,vmax=vmaxom))
@@ -177,12 +179,12 @@ qd.append(axi[1].plot(x[:,0], nbar + nm + np.mean(nlin) , color='green', lw=3, a
 qd.append(axi[1].plot(x[:,0], nlin, color='black', lw=3, alpha=0.5)[0])
 
 for i in range(len(ax)):
-    ax[i].axvspan(0, x[i1,0], alpha=0.5, color='grey')
-    ax[i].axvspan(x[i2,0], x[-1,0], alpha=0.5, color='grey')
+    ax[i].axvspan(0, x[ib1,0], alpha=0.5, color='grey')
+    ax[i].axvspan(x[ib2,0], x[-1,0], alpha=0.5, color='grey')
     ax[i].set_xlabel(r'$x$', labelpad=-3)
     ax[i].set_ylabel(r'$y$', labelpad=3)
-    ax[i].set_xticks(np.arange(0, x[-1,0], 10))
-    ax[i].set_yticks(np.arange(0, y[0,-1], 10))
+    ax[i].set_xticks(np.arange(0, x[-1,0], int(Lx/10)))
+    ax[i].set_yticks(np.arange(0, y[0,-1], int(Ly/10)))
     ax[i].xaxis.set_minor_locator(AutoMinorLocator(4))
     ax[i].yaxis.set_minor_locator(AutoMinorLocator(4))
     ax[i].set_xlim([x[0,0],x[-1,0]])
@@ -195,10 +197,10 @@ axi[1].set_ylim([vmin_n, vmax_n])
 axi[0].set_ylabel(r'$\overline{v}_y(x,t)$', labelpad=3)
 axi[1 ].set_ylabel(r'$n_r(x,t)$', labelpad=3)
 
-plot_hatches(axi[0], 0, vmin_u, x[i1,0], vmax_u-vmin_u)
-plot_hatches(axi[0], x[i2,0], vmin_u, Lx-x[i2,0], vmax_u-vmin_u)
-plot_hatches(axi[1], 0, vmin_n, x[i1, 0], vmax_n-vmin_n)
-plot_hatches(axi[1], x[i2,0], vmin_n, Lx, vmax_n-vmin_n)
+plot_hatches(axi[0], 0, vmin_u, x[ib1, 0], vmax_u - vmin_u)
+plot_hatches(axi[0], x[ib2, 0], vmin_u, Lx - x[ib2,0], vmax_u - vmin_u)
+plot_hatches(axi[1], 0, vmin_n, x[ib1, 0], vmax_n - vmin_n)
+plot_hatches(axi[1], x[ib2, 0], vmin_n, Lx, vmax_n - vmin_n)
 
 
 cbar_ax1 = fig.add_subplot(gs[2, 0])
@@ -226,9 +228,9 @@ lt_loc=comm.scatter(lt_loc,root=0)
 for j in lt_loc:
     print(str(j)+", "+str(np.round((j-lt_loc[0])/(lt_loc[-1]-lt_loc[0]) *100,0))+"%")
     u0=irft2(-uk[j,0,:,:]*ksqr)
-    u1=irft2(uk[j,1,:,:])
-    nbar, kap, nm = dec_prof(nr[j,], X, il, im1, i1, i2, im2, ir) 
-    nlin =  -kap*(X-X[i2]) + nr[j, i2]
+    u1=irft2(uk[j,1,:,:]) 
+    nbar, kap, nm = dec_prof(nr[j,], X, ib1, ib2, im1, im2, d_ixm) 
+    nlin =  -kap * (X - X[ib2]) + nr[j, ib2]
     qd[0].set_array(u0.ravel())
     qd[1].set_array(u1.ravel())
     qd[2].set_data(x[:,0], ur[j,])
@@ -245,8 +247,8 @@ comm.Barrier()
 if comm.rank==0:
     u0=irft2(-uk[0,0,:,:]*ksqr)
     u1=irft2(uk[0,1,:,:])
-    nbar, kap, nm = dec_prof(nr[0,], X, il, im1, i1, i2, im2, ir) 
-    nlin =  -kap*(X-X[i2]) + nr[0,i2]
+    nbar, kap, nm = dec_prof(nr[0,], X, ib1, ib2, im1, im2, d_ixm) 
+    nlin =  -kap*(X - X[ib2]) + nr[0, ib2]
     qd[0].set_array(u0.ravel())
     qd[1].set_array(u1.ravel())
     qd[2].set_data(x[:,0], ur[0])
