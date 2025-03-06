@@ -64,11 +64,6 @@ ksqr = kx**2 + ky**2
 slbar = np.s_[int(Ny/2) - 1:int(Ny/2) * int(Nx/2) - 1:int(Nx/2)] #Slice to access only zonal modes
 slturb = np.setdiff1d(np.arange(len(kx)), np.arange(len(kx))[slbar]) #Complementary of the zonal slice to access all non-zonal turbulent modes
 
-### Construct the 2D Fourier grid (for saving)
-kxp, kyp = xp.r_[np.arange(0,int(Nx/2)+1)*dkx, xp.arange(-int(Nx/2)+1, 0)*dkx],  xp.arange(0, int(Ny/2)+1)*dky
-kxp, kyp = xp.meshgrid(kxp, kyp, indexing='ij')
-ksqrp = kxp**2 + kyp**2
-
 ### Building the initial condition in Fourier space
 ### Here a Gaussian of width 10 * 2 * pi / Lx centered on (kx,ky) = (0,0), with random initial phases and initial amplitude of 1e-4
 w = 10.0
@@ -230,11 +225,11 @@ def save_callback(fl,t,y,l):
     
     elif l=="energies":
         ### Saving the mean kinetic and potential energies, and the "kinetic" enstrophy
-        K=xp.sum(ksqrp * abs(phikp)**2)
-        W=xp.sum(ksqrp**2 * abs(phikp)**2)
-        N=xp.sum(abs(nkp)**2)
-        save_data(fl, "fields/energies", ext_flag=True, t=t.get(), K=K.get(), W=W.get(), N=N.get())
-        del K, W, N
+        K, Kbar = xp.sum(ksqr*abs(phik)**2), xp.sum(abs(kx[slbar] * phik[slbar])**2)
+        W, Wbar = xp.sum(ksqr**2 * abs(phik)**2), xp.sum(abs(kx[slbar]**2 * phik[slbar])**2)
+        N, Nbar = xp.sum(abs(nk)**2), xp.sum(abs(nk[slbar])**2)
+        save_data(fl, "fields/energies", ext_flag=True, t=t.get(), K=K.get(), W=W.get(), N=N.get(), Kbar=Kbar.get(), Wbar=Wbar.get(), Nbar=Nbar.get())
+        del K, W, N, Kbar, Wbar, Nbar
                 
     del phik, nk, phiq, nq, ubar, nbar, phikp, nkp, uk
     
