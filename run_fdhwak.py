@@ -61,7 +61,7 @@ sl = slicelist(Nx, Ny)
 lkx, lky = init_kspace_grid(sl)
 kx, ky = lkx * dkx, lky * dky
 ksqr = kx**2 + ky**2
-slbar = np.s_[int(Ny/2) - 1:int(Ny/2) * int(Nx/2) - 1:int(Nx/2)] #Slice to access only zonal modes
+slbar = np.s_[int(Ny/2) - 1:int(Ny/2) * int(Nx/2) - 1:int(Ny/2)] #Slice to access only zonal modes
 slturb = np.setdiff1d(np.arange(len(kx)), np.arange(len(kx))[slbar]) #Complementary of the zonal slice to access all non-zonal turbulent modes
 
 ### Building the initial condition in Fourier space
