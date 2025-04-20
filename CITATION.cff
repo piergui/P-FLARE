@@ -1,0 +1,7 @@
+cff-version: 1.2.0
+authors:
+- family-names: "Guillon"
+  given-names: "Pierre L."
+title: "Pseudo-spectral flux-driven Hasegawa-Wakatani solver"
+date-released: 2025-02-17
+url: "https://github.com/piergui/fd_hwak"
