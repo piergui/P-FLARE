@@ -4,4 +4,4 @@ authors:
   given-names: "Pierre L."
 title: "Pseudo-spectral flux-driven Hasegawa-Wakatani solver"
 date-released: 2025-02-17
-url: "https://github.com/piergui/fd_hwak"
+url: "https://github.com/piergui/PSUDIHWAK"
