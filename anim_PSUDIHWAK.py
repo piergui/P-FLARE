@@ -21,9 +21,8 @@ from matplotlib.patches import Rectangle
 from mpi4py import MPI
 comm=MPI.COMM_WORLD
 
-#infl="outfdC0.01_64pi_1024x1024.h5"
-infl="/home/pguillon/mnt/runs/outfdC0.1_128pi_4096x4096.h5"
-outfl=infl[:-3]+".mp4"
+infl="RUNS/SPREAD/outfdC0.05_32pi_1024x1024_kapl5.0.h5"
+outfl="MOVIES/" + infl[5:-3] + ".mp4"
 
 plt.rcParams.update({
     'text.usetex' : True,
@@ -54,8 +53,8 @@ Npy=fl['params/Npy'][()]
 C=fl['params/C'][()]
 nu=fl['params/nu'][()]
 
-vminom, vmaxom = -10, 10
-vminn, vmaxn = -100, 100
+vminom, vmaxom = -7, 7 
+vminn, vmaxn = -25, 25
 
 vmin_u, vmax_u = -1.1 * np.max(abs(ur[:])), 1.1 * np.max(abs(ur[:]))
 vmin_n, vmax_n = np.min(nr[:,])*0.9, np.max(nr[:,])*1.1
@@ -73,32 +72,11 @@ kx, ky = np.meshgrid(kx, ky, indexing='ij')
 ksqr=kx**2+ky**2
 
 # Construct real grid
-dx=Lx/Npx;
-dy=Ly/Npy;
-X = np.arange(0,Npx)*dx
-Y = np.arange(0,Npy)*dy
+dx=Lx/Nx;
+dy=Ly/Ny;
+X = np.arange(0,Nx)*dx
+Y = np.arange(0,Ny)*dy
 x,y=np.meshgrid(X,Y,indexing='ij')
-
-def irft2(uk):
-    u = np.zeros((Npx, int(Npy/2)+1), dtype='complex128')
-    u[:Nxh,:Nxh] = uk[:Nxh,:Nxh]
-    u[-Nxh+1:,:Nxh] = uk[-Nxh+1:,:Nxh]
-    return np.fft.irfft2(u, norm='forward')
-
-def irft(vk):
-    v = np.zeros(int(Npx/2)+1, dtype='complex128')
-    v[:Nxh] = vk[:Nxh]
-    return np.fft.irfft(v, norm='forward')
-
-def rft(v):
-    Nx = int(v.shape[-1]/3) * 2
-    Nxh = int(Nx/2)
-    yk= np.fft.rfft(v, norm='forward', axis=-1)
-    vk = np.zeros(Nx, dtype=complex)
-    vk[:Nxh] = yk[:Nxh]
-    vk[-1:-Nxh:-1] = yk[-1:-Nxh:-1]
-    vk[0] = 0        
-    return vk
 
 def oneover(x):
     if(np.isscalar(x)):
@@ -162,29 +140,29 @@ gs = gridspec.GridSpec(3, 2, height_ratios=[0.05, 20, 0.5], hspace=0.5, wspace=0
 ax = [fig.add_subplot(gs[1, i]) for i in range(2)]
 axi = [ax[i].twinx() for i in range(2)]
 
-u0=irft2(-uk[0,0,:,:]*ksqr).real
-u1=irft2(uk[0,1,:,:]).real
+u0=np.fft.irfft2(-uk[0,0,:,:]*ksqr, norm='forward').real
+u1=np.fft.irfft2(uk[0,1,:,:], norm='forward').real
 nbar, kap, nm = dec_prof(nr[0,], X, ib1, ib2, im1, im2, d_ixm) 
-nlin =  -kap*(X-X[ib2]) + nr[0, ib2]
+# nlin =  -kap*(X-X[ib2]) + nr[0, ib2]
 
 qd=[]
 qd.append(ax[0].pcolormesh(x, y, u0,cmap='seismic',rasterized=True,vmin=vminom,vmax=vmaxom))
 qd.append(ax[1].pcolormesh(x, y, u1,cmap='seismic',rasterized=True,vmin=vminn,vmax=vmaxn))
 qd.append(axi[0].plot(x[:,0], ur[0,], color='w', lw=6)[0])
 qd.append(axi[0].plot(x[:,0], ur[0,], color='black', lw=3)[0])
-qd.append(axi[1].plot(x[:,0], nlin + nbar +nm, color='w', lw=6)[0])
-qd.append(axi[1].plot(x[:,0], nlin + nbar +nm, color='black', lw=3)[0])
-qd.append(axi[1].plot(x[:,0], nbar + nm + np.mean(nlin) , color='w', lw=6, alpha=0.5)[0])
-qd.append(axi[1].plot(x[:,0], nbar + nm + np.mean(nlin) , color='green', lw=3, alpha=0.5)[0])
-qd.append(axi[1].plot(x[:,0], nlin, color='black', lw=3, alpha=0.5)[0])
+qd.append(axi[1].plot(x[:,0], nr[0,],  color='w', lw=6)[0])
+qd.append(axi[1].plot(x[:,0], nr[0,], color='black', lw=3)[0])
+# qd.append(axi[1].plot(x[:,0], nbar + nm + np.mean(nlin) , color='w', lw=6, alpha=0.5)[0])
+# qd.append(axi[1].plot(x[:,0], nbar + nm + np.mean(nlin) , color='green', lw=3, alpha=0.5)[0])
+# qd.append(axi[1].plot(x[:,0], nlin, color='black', lw=3, alpha=0.5)[0])
 
 for i in range(len(ax)):
     ax[i].axvspan(0, x[ib1,0], alpha=0.5, color='grey')
     ax[i].axvspan(x[ib2,0], x[-1,0], alpha=0.5, color='grey')
     ax[i].set_xlabel(r'$x$', labelpad=-3)
     ax[i].set_ylabel(r'$y$', labelpad=3)
-    ax[i].set_xticks(np.arange(0, x[-1,0], int(Lx/10)))
-    ax[i].set_yticks(np.arange(0, y[0,-1], int(Ly/10)))
+    ax[i].set_xticks(np.arange(0, x[-1,0], int(Lx/5)))
+    ax[i].set_yticks(np.arange(0, y[0,-1], int(Ly/5)))
     ax[i].xaxis.set_minor_locator(AutoMinorLocator(4))
     ax[i].yaxis.set_minor_locator(AutoMinorLocator(4))
     ax[i].set_xlim([x[0,0],x[-1,0]])
@@ -202,7 +180,6 @@ plot_hatches(axi[0], x[ib2, 0], vmin_u, Lx - x[ib2,0], vmax_u - vmin_u)
 plot_hatches(axi[1], 0, vmin_n, x[ib1, 0], vmax_n - vmin_n)
 plot_hatches(axi[1], x[ib2, 0], vmin_n, Lx, vmax_n - vmin_n)
 
-
 cbar_ax1 = fig.add_subplot(gs[2, 0])
 cbar_ax2 = fig.add_subplot(gs[2, 1])
 cb1=fig.colorbar(qd[0], cax=cbar_ax1, orientation='horizontal')
@@ -211,7 +188,7 @@ cb1.set_label(r'$\Omega(x,y)$', labelpad=-10)
 cb2.set_label(r'$n(x,y)$', labelpad=-10)
 
 t=fl['fields/t'][()]
-tx=fig.text(0.35, 0.9, f'$t={np.round(0,1)}, \\kappa={kap:.3f}, C/\\kappa={C/kap :.3f}$')
+tx=fig.text(0.5, 0.9, f'$t={np.round(0,1)}, \\kappa={kap:.3f}, C/\\kappa={C/kap :.3f}$', ha='center')
 
 nt0=10
 Nt=t.shape[0]
@@ -227,44 +204,44 @@ lt_loc=comm.scatter(lt_loc,root=0)
 
 for j in lt_loc:
     print(str(j)+", "+str(np.round((j-lt_loc[0])/(lt_loc[-1]-lt_loc[0]) *100,0))+"%")
-    u0=irft2(-uk[j,0,:,:]*ksqr)
-    u1=irft2(uk[j,1,:,:]) 
+    u0=np.fft.irfft2(-uk[j,0,:,:]*ksqr, norm='forward')
+    u1=np.fft.irfft2(uk[j,1,:,:], norm='forward') 
     nbar, kap, nm = dec_prof(nr[j,], X, ib1, ib2, im1, im2, d_ixm) 
-    nlin =  -kap * (X - X[ib2]) + nr[j, ib2]
+    # nlin =  -kap * (X - X[ib2]) + nr[j, ib2]
     qd[0].set_array(u0.ravel())
     qd[1].set_array(u1.ravel())
     qd[2].set_data(x[:,0], ur[j,])
     qd[3].set_data(x[:,0], ur[j,])
-    qd[4].set_data(x[:,0], nlin + nbar +nm)
-    qd[5].set_data(x[:,0], nlin + nbar +nm)
-    qd[6].set_data(x[:,0], nbar+nm+np.mean(nlin))
-    qd[7].set_data(x[:,0], nbar+nm+np.mean(nlin))
-    qd[8].set_data(x[:,0], nlin)
+    qd[4].set_data(x[:,0], nr[j,])
+    qd[5].set_data(x[:,0], nr[j,])
+    # qd[6].set_data(x[:,0], nbar+nm+np.mean(nlin))
+    # qd[7].set_data(x[:,0], nbar+nm+np.mean(nlin))
+    # qd[8].set_data(x[:,0], nlin)
     tx.set_text(f'$t={np.round(t[j],1)}, \\kappa={kap:.3f}, C/\\kappa={C/kap :.3f}$')
     fig.savefig("_tmpimg_folder/tmpout%04i"%(j+nt0)+".png",dpi=200)#,bbox_inches='tight')
 comm.Barrier()
 
 if comm.rank==0:
-    u0=irft2(-uk[0,0,:,:]*ksqr)
-    u1=irft2(uk[0,1,:,:])
+    u0=np.fft.irfft2(-uk[0,0,:,:]*ksqr, norm='forward')
+    u1=np.fft.irfft2(uk[0,1,:,:], norm='forward')
     nbar, kap, nm = dec_prof(nr[0,], X, ib1, ib2, im1, im2, d_ixm) 
     nlin =  -kap*(X - X[ib2]) + nr[0, ib2]
     qd[0].set_array(u0.ravel())
     qd[1].set_array(u1.ravel())
     qd[2].set_data(x[:,0], ur[0])
     qd[3].set_data(x[:,0], ur[0])
-    qd[4].set_data(x[:,0], nlin + nbar + nm)
-    qd[5].set_data(x[:,0], nlin + nbar + nm)
-    qd[6].set_data(x[:,0], nbar+nm+np.mean(nlin))
-    qd[7].set_data(x[:,0], nbar+nm+np.mean(nlin))
-    qd[8].set_data(x[:,0], nlin)
+    qd[4].set_data(x[:,0], nr[0,])
+    qd[5].set_data(x[:,0], nr[0,])
+    # qd[6].set_data(x[:,0], nbar+nm+np.mean(nlin))
+    # qd[7].set_data(x[:,0], nbar+nm+np.mean(nlin))
+    # qd[8].set_data(x[:,0], nlin)
     tx.set_text('')
 
     str_intro =   "                 $\\textsc {P. L. Guillon}$ \n\n"
     str_intro += f"Box size : $[L_x,L_y]=[{Lx/np.pi}\\pi,{Ly/np.pi}\\pi]$ \n\n"
     str_intro += f"Padded Resolution : ${Npx} \\times {Npy}$ \n\n"
     str_intro += f"Viscosity : $\\nu = {nu:.2e}$ \n\n"
-    str_intro += f"$C = {C}$, $n_0(x)= L_x  - x$"
+    str_intro += f"$C = {C}$"
     fig.text(0.35, 0.5, str_intro,fontsize=24,ha='left', 
              bbox=dict(facecolor='lightyellow', edgecolor='blueviolet', boxstyle='round,pad=1', lw=3))
 
