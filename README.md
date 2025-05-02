@@ -1,5 +1,11 @@
 # PSUDIHWAK
 A pseudo spectral code for the flux-driven Hasegawa-Wakatani system using a penalisation method
 
-<img src="https://github.com/piergui/fd_hwak/blob/main/outfdC0.05_32pi_1024x1024_kapl5.0.gif"/>
+Below are some animations of numerical experiments which can be done with the code
 
+### Spreading of a profile with a large slope on the left
+We take an initial profile which is very steep on the left, and completely flat on the right.
+<img src="https://github.com/piergui/fd_hwak/blob/main/outfdC0.05_32pi_1024x1024_kapl5.0.gif"/>
+- The linear instability occurs mostly where the profile is the steepest, which is where turbulence develops.
+- Then, through time, the profile collapses and the turbulent region slowly spreads to the right until it reaches the right buffer zone.
+- At the latest times, we see the formation of zonal flows: since $\kappa$ decreases due to the turbulent particle flux, we reach $C/\kappa \sim 0.1$ and the system transitions to a zonal flows dominated state. Then zonal flows decrease the transport and we end up to some steady state.
