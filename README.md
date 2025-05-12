@@ -1,7 +1,9 @@
-# PSUDIHWAK
-A pseudo spectral code for the flux-driven Hasegawa-Wakatani system using a penalisation method
+# P-FLARE
+Penalised FLux-driven Algorithm for REduced models
 
-Below are some animations of numerical experiments which can be done with the code
+## Application to the Flux-Driven Hasegawa-Wakatani (FDHW) system
+
+Below are some animations of numerical experiments which can be done with the code applied to the FDHW
 
 ### Spreading of a profile with a large slope on the left
 We take an initial profile which is very steep on the left, and completely flat on the right.
