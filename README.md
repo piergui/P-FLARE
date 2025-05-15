@@ -14,3 +14,6 @@ We take an initial profile which is very steep on the left, and completely flat 
 
 Below we can look at the time evolution of the density and zonal velocity radial profiles for a similar simulation with a padded resolution of 4096 $\times$ 4096
 <img src="https://github.com/piergui/fd_hwak/blob/main/outfdC0.05_64pi_4096x4096_kapl5.0_profiles.gif"/>
+
+### Adding a localised particle sourc
+<img src="https://github.com/piergui/fd_hwak/blob/main/4_sources.gif" width="100%" height="100%"/>
