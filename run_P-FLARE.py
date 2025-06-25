@@ -40,26 +40,28 @@ def Wks(kx, ky, C, kap, nu=0, D=0, dxom=0, dxn=0, u=0):
     om_m = Wkm+u*ky-1j*Ak
     return om_p, om_m
 
-C = 0.01
+C = 1.0
 kap = 1.0
 
 ky0 = fmin(lambda x: -np.imag(Wks(0, x, C, kap,nu=0, D=0)[0] if x>=0 else 0), 1.25)[0]
 gam = Wks(0, ky0, C, kap, 0, 0)[0].imag
 
-nu = 3e-2 * gam / ky0**2  # viscosity
-D = 3e-2 * gam / ky0**2 # turbulent particle diffusion
+nu = 2.5e-4  # viscosity
+D = 2.5e-4# turbulent particle diffusion
 # Du = 1e-4 # zonal velocity diffusion
 # Dn = D * 1e-2 # zonal particle diffusion
 
 ### Grid resolution and box size
-Npx, Npy = 1024, 1024 # padded resolution
+Npx, Npy = 4096, 4096 # padded resolution
 Nx, Ny = 2 * int(np.floor(Npx/3)), 2 * int(np.floor(Npy/3)) # Fourier space resolution
-Lx, Ly = 10 * 2*np.pi / ky0, 10 * 2 * np.pi / ky0 # box size
+Lx ,Ly = 16*np.pi, 16*np.pi
 # Lx, Ly = 64*np.pi, 64*np.pi
 
 ### Integration time range and timesteps (solver, show, save, etc.)
-dtstep, dtshow = np.round(1 / gam / 100, 3), np.round(1 / gam / 10, 3) # time step integration, time step to print where we are
-t0, t1 = 0.0, np.round(200 * 100 * dtstep, 3) # time range to integrate /!\ use floats otherwise saving of time fails
+# dtstep, dtshow = np.round(1 / gam / 100, 3), np.round(1 / gam / 10, 3) # time step integration, time step to print where we are
+# t0, t1 = 0.0, np.round(200 * 100 * dtstep, 3) # time range to integrate /!\ use floats otherwise saving of time fails
+t0, t1 = 0.0, 300.0 #time range to integrate /!\ use floats otherwise saving of time fails
+dtstep, dtshow = 0.1, 1.0 #time step integration, time step to print where we are
 
 ### Buffer and penalisation parameters
 im1, im2 = 45, -45 # indices where to flatten the zonal density profile
@@ -71,7 +73,7 @@ sigS = 5 * Lx / Nx # width of the "artificial" sources for the boundary conditio
 
 ### Saving name or loading existing simulation
 wecontinue = False #flag to continue an already run simulation
-flname = f'RUNS/outfdC{C}_{int(Lx/np.pi)}pi_{Npx}x{Npy}.h5' 
+flname = f'RUNS/outfdC{C}_{int(Lx/np.pi)}pi_{Npx}x{Npy}_veloc.h5' 
 
 ### Construct real space 
 Xpad,  Ypad = xp.arange(0, Lx, Lx/Npx), xp.arange(0, Ly, Ly/Npy) #1D arrays for x and y axis in padded space
@@ -81,6 +83,7 @@ x, y = xp.meshgrid(xp.array(X), xp.array(Y), indexing='ij') #2D arrays for xy gr
 ### Building the initial radial profiles
 ur0 = xp.zeros_like(X) # flat initial poloidal velocity profile
 nr0 = Lx * np.exp(- 4 * (X/Lx)**2) #gaussian initial density profile (centered on X=0)
+nr0 = (X[ib2] - X) * kap
 
 ### Source term
 # alpha=0
@@ -340,9 +343,8 @@ def rhs(t,y):
     ### Apply the penalisation to force the zonal velocity to be zero in the buffer (no-slip boundary conditions)
     durdt += - mupen * (1 - psi_1D) * ur 
     
-    ### Boundary conditions at x1 and x2, using artificial narrow gaussian sources
+    ### Imposing boundary dnrdt[ib2]=0 at x2 (Dirichlet), using an artificial narrow gaussian source
     dnrdt +=  -dnrdt[ib2] * xp.exp(-(X - X[ib2])**2 / sigS**2 /2) # impose dnrdt[i2] = 0
-    dnrdt += dnrdt[ib2] * xp.exp(-(X - X[ib1])**2 / sigS**2 /2) # We want a free moving boundary, but we add the gaussian source to compensate for the artificial losses at the other boundary
     
     ### Apply physical source terms, here a constant source term
     # dnrdt += S_n(X, X[ib1], t, alpha = 0.02, sig_n = sigS * 5)
@@ -380,18 +382,18 @@ save_data(fl,'buffer', ext_flag=False, mupen=mupen, indices=(ib1, ib2, d_ixb, im
 ###Setting saving
 fsave=[
        (lambda t,y : save_callback(fl,t,y,"fields")),
-       (lambda t,y : save_callback(fl,t,y,"profiles")),
-       (lambda t,y : save_callback(fl,t,y,"reduced")),
-       (lambda t,y : save_callback(fl,t,y,"energies")),
-       (lambda t,y : save_callback(fl,t,y,"fluxes")),
+       # (lambda t,y : save_callback(fl,t,y,"profiles")),
+       # (lambda t,y : save_callback(fl,t,y,"reduced")),
+       # (lambda t,y : save_callback(fl,t,y,"energies")),
+       # (lambda t,y : save_callback(fl,t,y,"fluxes")),
        (lambda t,y : save_callback(fl,t,y,"show"))
        ]
 dtsave=[
-        10 * dtstep,
-        dtstep,
-        dtstep,
-        dtstep,
-        dtstep,
+        100 * dtstep,
+        # dtstep,
+        # dtstep,
+        # dtstep,
+        # dtstep,
         dtshow] #time step to do all the actions above
 
 ### Building solver an run
