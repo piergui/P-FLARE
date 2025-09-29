@@ -21,8 +21,8 @@ from matplotlib.patches import Rectangle
 from mpi4py import MPI
 comm=MPI.COMM_WORLD
 
-infl="RUNS/SPREAD/outfdC0.05_32pi_1024x1024_kapl5.0.h5"
-outfl="MOVIES/" + infl[5:-3] + ".mp4"
+infl="outfdC0.05_32pi_1024x1024_kapl5.0.h5"
+outfl=infl[5:-3] + ".mp4"
 
 plt.rcParams.update({
     'text.usetex' : True,
