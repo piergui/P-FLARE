@@ -73,7 +73,7 @@ sigS = 5 * Lx / Nx # width of the "artificial" sources for the boundary conditio
 
 ### Saving name or loading existing simulation
 wecontinue = False #flag to continue an already run simulation
-flname = f'RUNS/outfdC{C}_{int(Lx/np.pi)}pi_{Npx}x{Npy}_veloc.h5' 
+flname = f'outfdC{C}_{int(Lx/np.pi)}pi_{Npx}x{Npy}_veloc.h5' 
 
 ### Construct real space 
 Xpad,  Ypad = xp.arange(0, Lx, Lx/Npx), xp.arange(0, Ly, Ly/Npy) #1D arrays for x and y axis in padded space
