@@ -55,7 +55,7 @@ def S_n(X, X0, t, alpha, sig_n):
 
 ### Saving name or loading existing simulation
 wecontinue = False #flag to continue an already run simulation
-flname = f'out{C}_{Npx}x{Npy}.h5' 
+flname = f'outC{C}_{Npx}x{Npy}.h5' 
 
 ### Construct the slices and the Fourier space for 1D vectors
 dkx, dky = 2*np.pi/Lx , 2*np.pi/Ly
