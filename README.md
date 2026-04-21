@@ -9,7 +9,7 @@ git clone -b CPU https://github.com/piergui/P-FLARE.git
 ```
 
 ## Run the code
-Default example with a particle source, with C=1.0 and starting from an initial profile with kap=1.2 so that we are in the zonal flow dominated regime 
+Default example using the Hasegawa-Wakatani system with a particle source, with C=1.0 and starting from an initial profile with kap=1.2 so that we are in the zonal flow dominated regime 
 ```code
 python run_P-FLARE.py
 ```
