@@ -14,3 +14,6 @@ Default example with a particle source, with C=1.0 and starting from an initial 
 ```code
 python run_P-FLARE.py
 ```
+
+## Post-process the output file
+The jupyter-notebook `POST-PROCESS_P-FLARE.ipynb` contains a basic post-processing of the ouput file
