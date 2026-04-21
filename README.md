@@ -1,5 +1,4 @@
 # P-FLARE
-Penalised FLux-driven Algorithm for REduced models
-[https://arxiv.org/abs/2506.18705](https://doi.org/10.1017/S0022377825100895)
+Penalised FLux-driven Algorithm for REduced models https://doi.org/10.1017/S0022377825100895
 
-Some animations of numerical experiments are available at https://zenodo.org/records/15423476
+Some animations of numerical experiments with the Hasegawa-Wakatani model are available at https://zenodo.org/records/15423476
