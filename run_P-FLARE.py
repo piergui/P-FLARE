@@ -8,7 +8,7 @@ Created on Fri Feb 14 14:55:03 2025
 
 import numpy as np
 import os
-from mlsarray_numpy import mlsarray,slicelist,init_kspace_grid,rfft2
+from mlsarray import mlsarray,slicelist,init_kspace_grid,rfft2
 from gensolver import gensolver, save_data
 from time import time
 import h5py as h5
